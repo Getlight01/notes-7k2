@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#101317">
+<title>симулятор денег</title>
+<style>
+/* Сейф: графитовый корпус, латунная фурнитура. Одна колонка под телефон, всё на системных шрифтах — страница ничего не грузит из интернета. */
+:root{
+  --bg:#101317;
+  --panel:#181d23;
+  --line:#28313a;
+  --text:#e9edf0;
+  --muted:#8f9ba6;
+  --brass:#d6a24a;
+  --danger:#e26a5f;
+  --ok:#62c191;
+  --font-body:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --font-mono:ui-monospace,"SF Mono",Menlo,Consolas,"Roboto Mono",monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.45 var(--font-body);-webkit-text-size-adjust:100%}
+button,input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+.wrap{max-width:760px;margin:0 auto;padding:0 16px 40px}
+.top{position:sticky;top:0;z-index:5;background:rgba(16,19,23,.94);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.top .wrap{display:flex;align-items:center;gap:12px;padding-top:12px;padding-bottom:12px}
+.brand{display:flex;align-items:center;gap:10px;flex:1 1 auto;min-width:0}
+.brand b{font-weight:800;letter-spacing:.14em;text-transform:uppercase;font-size:15px}
+.pill{font:12px/1 var(--font-mono);padding:6px 9px;border-radius:999px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.pill.open{color:var(--ok);border-color:rgba(98,193,145,.45)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 16px;border-radius:12px;border:1px solid var(--line);background:var(--panel);cursor:pointer;text-decoration:none;font-weight:600}
+.btn:hover{border-color:#3a4652}
+.btn.primary{background:var(--brass);border-color:var(--brass);color:#1b1408}
+.btn.primary:hover{filter:brightness(1.06)}
+.btn.danger{color:var(--danger);border-color:rgba(226,106,95,.45);background:transparent}
+.btn.ghost{background:transparent}
+.btn[disabled]{opacity:.55;cursor:default}
+.link{background:none;border:0;padding:6px 0;color:var(--muted);text-decoration:underline;text-underline-offset:3px;cursor:pointer;font-size:15px}
+.screen{display:none}
+.screen.on{display:block}
+.hero{display:grid;justify-items:center;text-align:center;gap:14px;padding:36px 0 22px}
+.dial{width:132px;height:132px;border-radius:50%;display:grid;place-items:center;
+  background:radial-gradient(circle at 50% 45%,#2a2317 0 38%,transparent 39%),
+             repeating-conic-gradient(from 0deg,var(--brass) 0 1.2deg,transparent 1.2deg 10deg);
+  box-shadow:inset 0 0 0 10px var(--bg),inset 0 0 0 11px rgba(214,162,74,.6),0 0 0 1px var(--line)}
+.dial span{font:600 13px/1 var(--font-mono);color:var(--brass);letter-spacing:.08em}
+h1{font-size:26px;line-height:1.15;margin:0;text-wrap:balance;font-weight:800;letter-spacing:-.01em}
+.lead{color:var(--muted);margin:0;max-width:34em;text-wrap:balance}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;display:grid;gap:12px}
+.card h2{margin:0;font-size:18px}
+.stack{display:grid;gap:14px}
+label.f{display:grid;gap:6px;font-size:14px;color:var(--muted)}
+input[type=password],input[type=text]{width:100%;min-height:48px;padding:0 14px;border-radius:12px;border:1px solid var(--line);background:#0c0f12;font-size:17px;letter-spacing:.02em}
+input[type=password]:focus,input[type=text]:focus{border-color:var(--brass);outline:none}
+.err{color:var(--danger);font-size:14px;min-height:1.2em;margin:0}
+.hint{color:var(--muted);font-size:13px;margin:0}
+.warn{border-left:3px solid var(--brass);background:rgba(214,162,74,.08);padding:10px 12px;border-radius:0 10px 10px 0;font-size:14px;color:#e6d6b8}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;padding:16px 0 12px}
+.count{font:600 13px/1 var(--font-mono);color:var(--muted);margin-right:auto}
+.count b{color:var(--text);font-size:22px;margin-right:6px}
+.banner{display:none;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin:0 0 12px}
+.banner.on{display:flex}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:4px}
+.tile{position:relative;aspect-ratio:1/1;border:0;padding:0;border-radius:6px;overflow:hidden;background:#0b0e11;cursor:pointer}
+.tile img{width:100%;height:100%;object-fit:cover;display:block}
+.tile .ph{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);font:12px var(--font-mono)}
+.empty{border:1px dashed var(--line);border-radius:16px;padding:28px 18px;text-align:center;color:var(--muted)}
+.viewer{position:fixed;inset:0;z-index:20;background:rgba(6,8,10,.97);display:none;flex-direction:column}
+.viewer.on{display:flex}
+.viewer .stage{flex:1 1 auto;display:grid;place-items:center;overflow:auto;padding:12px}
+.viewer img{max-width:100%;max-height:100%;object-fit:contain}
+.viewer .bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:12px 16px;border-top:1px solid var(--line);background:var(--bg)}
+.viewer .name{flex:1 1 100%;font:13px var(--font-mono);color:var(--muted);overflow-wrap:anywhere}
+.modal{position:fixed;inset:0;z-index:30;display:none;place-items:center;background:rgba(0,0,0,.6);padding:16px}
+.modal.on{display:grid}
+.modal .card{max-width:420px;width:100%}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:40;background:#222a32;border:1px solid var(--line);padding:12px 16px;border-radius:12px;max-width:calc(100% - 32px);font-size:15px;opacity:0;pointer-events:none;transition:opacity .2s}
+.toast.on{opacity:1}
+.busy{position:fixed;inset:0;z-index:35;display:none;place-items:center;background:rgba(10,12,14,.75)}
+.busy.on{display:grid}
+.busy div{font:14px var(--font-mono);color:var(--brass)}
+footer{color:var(--muted);font-size:13px;padding-top:26px;display:grid;gap:6px}
+@media (prefers-reduced-motion:reduce){.toast{transition:none}}
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap">
+  <div class="brand"><b>Сейф</b><span class="pill" id="state-pill">закрыт</span></div>
+  <button class="btn ghost" id="btn-lock" hidden>Закрыть</button>
+</div></header>
+
+<main class="wrap">
+
+  <!-- Нет сейфа на этом устройстве -->
+  <section class="screen" id="scr-setup">
+    <div class="hero">
+      <div class="dial" aria-hidden="true"><span>AES-256</span></div>
+      <h1>Сейф для важных фото</h1>
+      <p class="lead">Фото шифруются паролем прямо на телефоне и не показываются в галерее. Страница ничего не отправляет в интернет.</p>
+    </div>
+    <div class="stack">
+      <form class="card" id="form-create" autocomplete="off" novalidate>
+        <h2>Создать новый сейф</h2>
+        <label class="f" for="new-pw">Пароль (не меньше 8 символов)
+          <input type="password" id="new-pw" autocomplete="new-password" minlength="8" required></label>
+        <label class="f" for="new-pw2">Повторите пароль
+          <input type="password" id="new-pw2" autocomplete="new-password" minlength="8" required></label>
+        <p class="warn">Пароль нельзя восстановить. Забудете его — фото не откроет никто, в том числе вы. Запишите его на бумаге.</p>
+        <p class="err" id="create-err"></p>
+        <button class="btn primary" type="submit">Создать сейф</button>
+      </form>
+      <div class="card">
+        <h2>Уже есть копия сейфа</h2>
+        <p class="hint">Файл <span style="font-family:var(--font-mono)">seyf-….json</span>, который вы сохранили раньше.</p>
+        <button class="btn" type="button" id="btn-restore-1">Открыть файл копии</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Сейф есть, закрыт -->
+  <section class="screen" id="scr-unlock">
+    <div class="hero">
+      <div class="dial" aria-hidden="true"><span id="unlock-count">0 фото</span></div>
+      <h1>Введите пароль</h1>
+    </div>
+    <form class="card" id="form-unlock" autocomplete="off" novalidate>
+      <label class="f" for="pw">Пароль сейфа
+        <input type="password" id="pw" autocomplete="current-password" required></label>
+      <p class="err" id="unlock-err"></p>
+      <button class="btn primary" type="submit">Открыть</button>
+    </form>
+    <footer>
+      <div class="row"><button class="link" type="button" id="btn-restore-2">Заменить сейф копией из файла</button></div>
+      <div class="row"><button class="link" type="button" id="btn-wipe">Удалить сейф с этого устройства</button></div>
+    </footer>
+  </section>
+
+  <!-- Открытие файла копии -->
+  <section class="screen" id="scr-restore">
+    <div class="hero">
+      <div class="dial" aria-hidden="true"><span id="restore-count">файл</span></div>
+      <h1>Пароль от копии</h1>
+      <p class="lead" id="restore-file"></p>
+    </div>
+    <form class="card" id="form-restore" autocomplete="off" novalidate>
+      <label class="f" for="restore-pw">Пароль, с которым сохраняли копию
+        <input type="password" id="restore-pw" required></label>
+      <p class="err" id="restore-err"></p>
+      <div class="row">
+        <button class="btn primary" type="submit">Открыть копию</button>
+        <button class="btn ghost" type="button" id="btn-restore-cancel">Отмена</button>
+      </div>
+    </form>
+  </section>
+
+  <!-- Открытый сейф -->
+  <section class="screen" id="scr-vault">
+    <div class="toolbar">
+      <div class="count"><b id="vault-count">0</b>фото</div>
+      <button class="btn primary" type="button" id="btn-add">Добавить фото</button>
+      <button class="btn" type="button" id="btn-export">Сохранить копию</button>
+    </div>
+    <div class="banner warn" id="banner-dirty">
+      <span>Новые фото ещё не сохранены в файл копии.</span>
+      <button class="btn" type="button" id="btn-export-2">Сохранить копию</button>
+    </div>
+    <div class="banner warn" id="banner-mem">
+      <span>Это окно не может хранить сейф между запусками. Сохраните копию в файл, иначе фото пропадут после закрытия.</span>
+    </div>
+    <div class="grid" id="grid"></div>
+    <div class="empty" id="empty" hidden>
+      Сейф пуст. Нажмите «Добавить фото» и выберите снимки из галереи.<br>
+      Когда они появятся здесь, удалите их из галереи и из её корзины.
+    </div>
+    <footer>
+      <span>Копия сейфа — зашифрованный файл .json. Без пароля его не открыть. Держите её в двух местах: в облаке и на флешке.</span>
+      <span>Сейф закрывается сам через 5 минут без действий или когда вы уходите из приложения дольше чем на минуту.</span>
+    </footer>
+  </section>
+
+  <section class="screen" id="scr-nocrypto">
+    <div class="hero">
+      <h1>Здесь сейф не работает</h1>
+      <p class="lead">Этому окну недоступно шифрование браузера. Откройте страницу по ссылке в обычном браузере телефона (Chrome или Safari).</p>
+    </div>
+  </section>
+</main>
+
+<input type="file" id="in-add" accept="image/*" multiple hidden>
+<input type="file" id="in-restore" accept=".json,application/json" hidden>
+
+<div class="viewer" id="viewer" role="dialog" aria-modal="true" aria-label="Фото">
+  <div class="stage" id="stage"></div>
+  <div class="bar">
+    <div class="name" id="v-name"></div>
+    <button class="btn" type="button" id="v-save">Сохранить фото на телефон</button>
+    <button class="btn danger" type="button" id="v-del">Удалить из сейфа</button>
+    <button class="btn ghost" type="button" id="v-close">Закрыть</button>
+  </div>
+</div>
+
+<div class="modal" id="modal" role="dialog" aria-modal="true">
+  <div class="card">
+    <h2 id="m-title"></h2>
+    <p class="hint" id="m-text" style="font-size:15px;color:var(--text)"></p>
+    <div class="row">
+      <button class="btn" type="button" id="m-ok"></button>
+      <button class="btn ghost" type="button" id="m-cancel">Отмена</button>
+    </div>
+  </div>
+</div>
+<div class="busy" id="busy"><div id="busy-text">Работаю…</div></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+'use strict';
+const $ = (id) => document.getElementById(id);
+const TE = new TextEncoder(), TD = new TextDecoder();
+const ITER = 600000;
+const FORMAT = 'seyf-vault';
+const IDLE_MS = 5 * 60 * 1000, AWAY_MS = 60 * 1000, PICK_MS = 15 * 60 * 1000;
+const SAVE_EXT = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif' };
+
+/* ---------- мелочи интерфейса ---------- */
+let toastT;
+function toast(msg) {
+  const t = $('toast'); t.textContent = msg; t.classList.add('on');
+  clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), 3200);
+}
+function busy(on, text) { $('busy-text').textContent = text || 'Работаю…'; $('busy').classList.toggle('on', !!on); }
+function show(id) {
+  for (const s of document.querySelectorAll('.screen')) s.classList.toggle('on', s.id === id);
+  const open = id === 'scr-vault';
+  $('btn-lock').hidden = !open;
+  $('state-pill').textContent = open ? 'открыт' : 'закрыт';
+  $('state-pill').classList.toggle('open', open);
+}
+function ask(title, text, okLabel, danger) {
+  return new Promise((resolve) => {
+    $('m-title').textContent = title; $('m-text').textContent = text;
+    const ok = $('m-ok'); ok.textContent = okLabel; ok.className = 'btn ' + (danger ? 'danger' : 'primary');
+    $('modal').classList.add('on'); ok.focus();
+    const done = (v) => { $('modal').classList.remove('on'); ok.onclick = null; $('m-cancel').onclick = null; resolve(v); };
+    ok.onclick = () => done(true); $('m-cancel').onclick = () => done(false);
+  });
+}
+function plural(n, a, b, c) { const m10 = n % 10, m100 = n % 100; return (m10 === 1 && m100 !== 11) ? a : (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) ? b : c; }
+
+/* ---------- base64 ---------- */
+function b64(u8) { let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); }
+function unb64(str) { const bin = atob(str); const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u; }
+
+/* ---------- шифрование: PBKDF2-SHA256 → AES-256-GCM ---------- */
+async function deriveKey(pw, salt, iter) {
+  const base = await crypto.subtle.importKey('raw', TE.encode(pw), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey({ name: 'PBKDF2', hash: 'SHA-256', salt, iterations: iter }, base,
+    { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+}
+async function seal(key, bytes, aad) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv, additionalData: TE.encode(aad) }, key, bytes));
+  return { iv, ct };
+}
+async function unseal(key, box, aad) {
+  return new Uint8Array(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: box.iv, additionalData: TE.encode(aad) }, key, box.ct));
+}
+const CHECK = 'seyf-ok-v1';
+async function verify(key, header) {
+  try { return TD.decode(await unseal(key, header.check, 'check')) === CHECK; } catch { return false; }
+}
+
+/* ---------- хранилище: IndexedDB, иначе память окна ---------- */
+const IDB = (() => {
+  let dbp = null;
+  function open() {
+    if (!dbp) dbp = new Promise((res, rej) => {
+      let r; try { r = indexedDB.open('seyf-vault', 1); } catch (e) { rej(e); return; }
+      r.onupgradeneeded = () => { const d = r.result; d.createObjectStore('kv'); d.createObjectStore('items', { keyPath: 'id' }); };
+      r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); r.onblocked = () => rej(new Error('blocked'));
+    });
+    return dbp;
+  }
+  function run(stores, mode, fn) {
+    return open().then((db) => new Promise((res, rej) => {
+      const t = db.transaction(stores, mode); let out;
+      const req = fn(t); if (req) req.onsuccess = () => { out = req.result; };
+      t.oncomplete = () => res(out); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error);
+    }));
+  }
+  return {
+    getHeader: () => run('kv', 'readonly', (t) => t.objectStore('kv').get('header')),
+    setHeader: (h) => run('kv', 'readwrite', (t) => t.objectStore('kv').put(h, 'header')),
+    getItem: (id) => run('items', 'readonly', (t) => t.objectStore('items').get(id)),
+    putItem: (it) => run('items', 'readwrite', (t) => t.objectStore('items').put(it)),
+    delItem: (id) => run('items', 'readwrite', (t) => t.objectStore('items').delete(id)),
+    clear: () => run(['kv', 'items'], 'readwrite', (t) => { t.objectStore('kv').clear(); t.objectStore('items').clear(); }),
+  };
+})();
+const MEM = (() => {
+  let header = null; const items = new Map();
+  return {
+    getHeader: async () => header, setHeader: async (h) => { header = h; },
+    getItem: async (id) => items.get(id), putItem: async (it) => { items.set(it.id, it); },
+    delItem: async (id) => { items.delete(id); }, clear: async () => { header = null; items.clear(); },
+  };
+})();
+let store = IDB, memOnly = false;
+async function initStore() {
+  try { await IDB.getHeader(); }
+  catch { store = MEM; memOnly = true; }
+}
+async function replaceVault(header, items) {
+  await store.clear();
+  for (const it of items) await store.putItem(it);
+  await store.setHeader(header);
+}
+
+/* ---------- состояние открытого сейфа ---------- */
+let key = null, header = null;
+const urls = new Map();       // id -> objectURL миниатюры
+const metas = new Map();      // id -> {name,type,size,added}
+let viewerId = null, viewerUrl = null;
+
+function newId() { return b64(crypto.getRandomValues(new Uint8Array(12))).replace(/[+/=]/g, (c) => ({ '+': '-', '/': '_', '=': '' })[c]); }
+
+function lock(reason) {
+  key = null;
+  closeViewer();
+  for (const u of urls.values()) URL.revokeObjectURL(u);
+  urls.clear(); metas.clear();
+  $('grid').replaceChildren();
+  $('pw').value = '';
+  if (header) { $('unlock-count').textContent = `${header.order.length} фото`; show('scr-unlock'); }
+  else show('scr-setup');
+  if (reason) toast(reason);
+}
+
+/* ---------- создание / открытие ---------- */
+$('form-create').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const a = $('new-pw').value, b = $('new-pw2').value;
+  if (a.length < 8) { $('create-err').textContent = 'Пароль должен быть не короче 8 символов.'; return; }
+  if (a !== b) { $('create-err').textContent = 'Пароли не совпадают.'; return; }
+  $('create-err').textContent = '';
+  busy(true, 'Создаю сейф…');
+  try {
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const k = await deriveKey(a, salt, ITER);
+    const h = { format: FORMAT, v: 1, kdf: { iter: ITER, salt }, check: await seal(k, TE.encode(CHECK), 'check'),
+      order: [], dirty: false, created: Date.now() };
+    await replaceVault(h, []);
+    header = h; key = k;
+    $('new-pw').value = $('new-pw2').value = '';
+    try { await navigator.storage?.persist?.(); } catch {}
+    await openVault();
+    toast('Сейф создан. Добавьте фото.');
+  } catch (err) { $('create-err').textContent = 'Не получилось создать сейф: ' + (err && err.message || err); }
+  finally { busy(false); }
+});
+
+$('form-unlock').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const pw = $('pw').value;
+  if (!pw) return;
+  $('unlock-err').textContent = '';
+  busy(true, 'Проверяю пароль…');
+  try {
+    const k = await deriveKey(pw, header.kdf.salt, header.kdf.iter);
+    if (!(await verify(k, header))) { $('unlock-err').textContent = 'Неверный пароль.'; return; }
+    key = k; $('pw').value = '';
+    await openVault();
+  } finally { busy(false); }
+});
+
+async function openVault() {
+  show('scr-vault');
+  $('banner-mem').classList.toggle('on', memOnly);
+  await renderGrid();
+  bumpIdle();
+}
+
+async function renderGrid() {
+  const grid = $('grid');
+  const order = header.order;
+  $('vault-count').textContent = order.length;
+  $('empty').hidden = order.length > 0;
+  $('banner-dirty').classList.toggle('on', !!header.dirty && order.length > 0);
+  const have = new Set(order);
+  for (const [id, u] of urls) if (!have.has(id)) { URL.revokeObjectURL(u); urls.delete(id); metas.delete(id); }
+  const tiles = [];
+  for (const id of order) {
+    const b = document.createElement('button');
+    b.className = 'tile'; b.type = 'button'; b.dataset.id = id; b.setAttribute('aria-label', 'Открыть фото');
+    if (urls.has(id)) { const img = new Image(); img.src = urls.get(id); img.alt = ''; b.append(img); }
+    else { const ph = document.createElement('span'); ph.className = 'ph'; ph.textContent = '…'; b.append(ph); }
+    tiles.push(b);
+  }
+  grid.replaceChildren(...tiles);
+  for (const b of tiles) {
+    const id = b.dataset.id;
+    if (urls.has(id) || !key) continue;
+    const k = key;
+    try {
+      const it = await store.getItem(id);
+      if (!it || k !== key) continue;
+      const meta = JSON.parse(TD.decode(await unseal(k, it.meta, id + ':meta')));
+      metas.set(id, meta);
+      if (it.thumb) {
+        const bytes = await unseal(k, it.thumb, id + ':thumb');
+        if (k !== key) return;
+        const u = URL.createObjectURL(new Blob([bytes], { type: 'image/jpeg' }));
+        urls.set(id, u);
+        const img = new Image(); img.src = u; img.alt = '';
+        b.replaceChildren(img);
+      } else {
+        b.querySelector('.ph').textContent = 'фото';
+      }
+    } catch { const ph = b.querySelector('.ph'); if (ph) ph.textContent = 'ошибка'; }
+  }
+}
+
+/* ---------- добавление фото ---------- */
+let picking = false;
+$('btn-add').addEventListener('click', () => { picking = true; $('in-add').value = ''; $('in-add').click(); });
+window.addEventListener('focus', () => setTimeout(() => { picking = false; }, 1500));
+
+async function makeThumb(file) {
+  try {
+    const bmp = await createImageBitmap(file);
+    const s = Math.min(1, 360 / Math.max(bmp.width, bmp.height));
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(bmp.width * s)); c.height = Math.max(1, Math.round(bmp.height * s));
+    c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+    if (bmp.close) bmp.close();
+    const blob = await new Promise((r) => c.toBlob(r, 'image/jpeg', 0.82));
+    return blob ? new Uint8Array(await blob.arrayBuffer()) : null;
+  } catch { return null; }
+}
+
+$('in-add').addEventListener('change', async () => {
+  picking = false;
+  const files = [...$('in-add').files];
+  if (!files.length || !key) return;
+  const k = key; let added = 0;
+  try {
+    for (let i = 0; i < files.length; i++) {
+      busy(true, `Шифрую ${i + 1} из ${files.length}…`);
+      const f = files[i];
+      const id = newId();
+      const data = new Uint8Array(await f.arrayBuffer());
+      const thumb = await makeThumb(f);
+      const meta = { name: f.name || `photo-${Date.now()}.jpg`, type: f.type || 'image/jpeg', size: f.size, added: Date.now() };
+      const item = {
+        id,
+        meta: await seal(k, TE.encode(JSON.stringify(meta)), id + ':meta'),
+        thumb: thumb ? await seal(k, thumb, id + ':thumb') : null,
+        data: await seal(k, data, id + ':data'),
+      };
+      if (k !== key) break;
+      await store.putItem(item);
+      header.order.unshift(id); header.dirty = true;
+      await store.setHeader(header);
+      added++;
+    }
+  } catch (err) { toast('Не получилось добавить фото: ' + (err && err.message || err)); }
+  finally { busy(false); }
+  if (added) {
+    await renderGrid();
+    toast(`Добавлено ${added} ${plural(added, 'фото', 'фото', 'фото')}. Теперь удалите их из галереи и сохраните копию.`);
+  }
+});
+
+/* ---------- просмотр ---------- */
+$('grid').addEventListener('click', async (e) => {
+  const b = e.target.closest('.tile'); if (!b || !key) return;
+  const id = b.dataset.id; const k = key;
+  busy(true, 'Открываю…');
+  try {
+    const it = await store.getItem(id);
+    const meta = metas.get(id) || JSON.parse(TD.decode(await unseal(k, it.meta, id + ':meta')));
+    const bytes = await unseal(k, it.data, id + ':data');
+    if (k !== key) return;
+    closeViewer();
+    viewerId = id; viewerUrl = URL.createObjectURL(new Blob([bytes], { type: meta.type }));
+    const img = new Image(); img.alt = meta.name; img.src = viewerUrl;
+    img.onerror = () => { $('stage').textContent = 'Это фото браузер показать не может, но оно хранится в сейфе. Его можно сохранить на телефон.'; };
+    $('stage').replaceChildren(img);
+    const kb = Math.round(meta.size / 1024);
+    $('v-name').textContent = `${meta.name} · ${kb > 1024 ? (kb / 1024).toFixed(1) + ' МБ' : kb + ' КБ'} · добавлено ${new Date(meta.added).toLocaleDateString('ru-RU')}`;
+    $('viewer').classList.add('on'); $('v-close').focus();
+  } catch { toast('Не получилось открыть фото.'); }
+  finally { busy(false); }
+});
+function closeViewer() {
+  $('viewer').classList.remove('on');
+  if (viewerUrl) URL.revokeObjectURL(viewerUrl);
+  viewerUrl = null; viewerId = null; $('stage').replaceChildren();
+}
+$('v-close').addEventListener('click', closeViewer);
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && $('viewer').classList.contains('on')) closeViewer(); });
+
+$('v-del').addEventListener('click', async () => {
+  const id = viewerId; if (!id) return;
+  const yes = await ask('Удалить фото из сейфа?', 'Если его нет в файле копии или где-то ещё, оно пропадёт навсегда.', 'Удалить', true);
+  if (!yes || !key) return;
+  await store.delItem(id);
+  header.order = header.order.filter((x) => x !== id); header.dirty = true;
+  await store.setHeader(header);
+  closeViewer(); await renderGrid(); toast('Фото удалено из сейфа.');
+});
+
+$('v-save').addEventListener('click', async () => {
+  const id = viewerId; if (!id || !key) return;
+  const meta = metas.get(id);
+  const ext = SAVE_EXT[meta && meta.type];
+  if (!ext) { toast('Этот формат здесь сохранить нельзя. Откройте фото и сделайте снимок экрана.'); return; }
+  const yes = await ask('Сохранить фото на телефон?', 'Копия появится в «Загрузках» и, скорее всего, в галерее — её снова будет видно. Потом удалите её.', 'Сохранить', false);
+  if (!yes) return;
+  const it = await store.getItem(id);
+  const bytes = await unseal(key, it.data, id + ':data');
+  const base = (meta.name || 'photo').replace(/\.[^.]+$/, '');
+  await saveFile(`${base}.${ext}`, new Blob([bytes], { type: meta.type }), 'Фото сохранено.');
+});
+
+/* ---------- сохранение файлов ---------- */
+let downloads = null, downloadsTried = false;
+const inViewer = !!(window.claude && typeof window.claude.use === 'function');
+setTimeout(() => {
+  if (!inViewer) return;
+  window.claude.use('downloads').then((d) => { downloads = d; }).catch(() => { downloads = null; }).finally(() => { downloadsTried = true; });
+}, 0);
+async function saveFile(name, blob, okMsg) {
+  if (inViewer) {
+    if (!downloads) { toast(downloadsTried ? 'В этом окне сохранять файлы нельзя. Откройте страницу в браузере телефона.' : 'Секунду, подключаю сохранение файлов…'); return false; }
+    try { await downloads.save({ filename: name, data: blob }); toast(okMsg); return true; }
+    catch (err) {
+      const c = err && err.code;
+      toast(c === 'declined' ? 'Сохранение отменено.' : c === 'rate_limited' ? 'Подождите пару секунд и нажмите ещё раз.' : c === 'too_large' ? 'Файл слишком большой для этого окна.' : 'Не получилось сохранить файл здесь.');
+      return false;
+    }
+  }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 30000);
+  toast(okMsg); return true;
+}
+
+async function exportVault() {
+  if (!key || !header) return;
+  busy(true, 'Готовлю копию…');
+  try {
+    const parts = [JSON.stringify({ format: FORMAT, v: 1, created: header.created, saved: Date.now(),
+      kdf: { alg: 'PBKDF2-SHA256', iter: header.kdf.iter, salt: b64(header.kdf.salt) },
+      check: { iv: b64(header.check.iv), ct: b64(header.check.ct) } }).slice(0, -1) + ',"items":['];
+    let first = true;
+    for (const id of header.order) {
+      const it = await store.getItem(id); if (!it) continue;
+      const box = (x) => x ? { iv: b64(x.iv), ct: b64(x.ct) } : null;
+      parts.push((first ? '' : ',') + JSON.stringify({ id: it.id, meta: box(it.meta), thumb: box(it.thumb), data: box(it.data) }));
+      first = false;
+    }
+    parts.push(']}');
+    const d = new Date(); const stamp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    busy(false);
+    const ok = await saveFile(`seyf-${stamp}.json`, new Blob(parts, { type: 'application/json' }), 'Копия сохранена. Без пароля её не открыть.');
+    if (ok) { header.dirty = false; await store.setHeader(header); $('banner-dirty').classList.remove('on'); }
+  } finally { busy(false); }
+}
+$('btn-export').addEventListener('click', exportVault);
+$('btn-export-2').addEventListener('click', exportVault);
+
+/* ---------- восстановление из файла ---------- */
+let pending = null;
+function pickRestore() { picking = true; $('in-restore').value = ''; $('in-restore').click(); }
+$('btn-restore-1').addEventListener('click', pickRestore);
+$('btn-restore-2').addEventListener('click', pickRestore);
+$('in-restore').addEventListener('change', async () => {
+  picking = false;
+  const f = $('in-restore').files[0]; if (!f) return;
+  try {
+    const j = JSON.parse(await f.text());
+    if (!j || j.format !== FORMAT || !j.kdf || !j.check || !Array.isArray(j.items)) throw new Error('format');
+    const box = (x) => x ? { iv: unb64(x.iv), ct: unb64(x.ct) } : null;
+    pending = {
+      header: { format: FORMAT, v: 1, kdf: { iter: j.kdf.iter, salt: unb64(j.kdf.salt) }, check: box(j.check),
+        order: j.items.map((x) => x.id), dirty: false, created: j.created || Date.now() },
+      items: j.items.map((x) => ({ id: x.id, meta: box(x.meta), thumb: box(x.thumb), data: box(x.data) })),
+    };
+    $('restore-count').textContent = `${pending.items.length} фото`;
+    $('restore-file').textContent = f.name;
+    $('restore-err').textContent = ''; $('restore-pw').value = '';
+    show('scr-restore'); $('restore-pw').focus();
+  } catch { toast('Это не файл копии сейфа.'); }
+});
+$('btn-restore-cancel').addEventListener('click', () => { pending = null; header ? show('scr-unlock') : show('scr-setup'); });
+$('form-restore').addEventListener('submit', async (e) => {
+  e.preventDefault(); if (!pending) return;
+  busy(true, 'Проверяю пароль…');
+  let k;
+  try {
+    k = await deriveKey($('restore-pw').value, pending.header.kdf.salt, pending.header.kdf.iter);
+    if (!(await verify(k, pending.header))) { $('restore-err').textContent = 'Пароль не подходит к этой копии.'; return; }
+  } finally { busy(false); }
+  if (header && header.order.length) {
+    const yes = await ask('Заменить сейф на этом устройстве?', `Сейчас здесь ${header.order.length} фото. Они заменятся фото из копии (${pending.items.length}).`, 'Заменить', true);
+    if (!yes) return;
+  }
+  busy(true, 'Восстанавливаю…');
+  try {
+    await replaceVault(pending.header, pending.items);
+    header = pending.header; pending = null; key = k;
+    for (const u of urls.values()) URL.revokeObjectURL(u); urls.clear(); metas.clear();
+    $('restore-pw').value = '';
+    try { await navigator.storage?.persist?.(); } catch {}
+    await openVault(); toast('Сейф восстановлен из копии.');
+  } catch (err) { $('restore-err').textContent = 'Не получилось восстановить: ' + (err && err.message || err); }
+  finally { busy(false); }
+});
+
+$('btn-wipe').addEventListener('click', async () => {
+  const yes = await ask('Удалить сейф с этого устройства?', 'Фото останутся только в файлах копии, если вы их сохраняли. Без копии они пропадут навсегда.', 'Удалить сейф', true);
+  if (!yes) return;
+  await store.clear(); header = null; lock(); toast('Сейф удалён с этого устройства.');
+});
+
+/* ---------- автоблокировка ---------- */
+let idleT, hiddenAt = 0;
+function bumpIdle() { clearTimeout(idleT); if (key) idleT = setTimeout(() => lock('Сейф закрыт: 5 минут без действий.'), IDLE_MS); }
+for (const ev of ['pointerdown', 'keydown', 'touchstart', 'wheel']) document.addEventListener(ev, bumpIdle, { passive: true });
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { hiddenAt = Date.now(); return; }
+  if (key && hiddenAt && Date.now() - hiddenAt > (picking ? PICK_MS : AWAY_MS)) lock('Сейф закрыт, пока вас не было.');
+  hiddenAt = 0;
+});
+$('btn-lock').addEventListener('click', () => lock());
+
+/* ---------- запуск ---------- */
+async function start() {
+  if (!window.isSecureContext || !window.crypto || !crypto.subtle) { show('scr-nocrypto'); return; }
+  await initStore();
+  header = (await store.getHeader()) || null;
+  lock();
+}
+start();
+})();
+</script>
+</body>
+</html>
